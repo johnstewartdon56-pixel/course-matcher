@@ -101,107 +101,89 @@ function apsLevel(pct) {
 let uid = 0;
 const nextId = () => `s${uid++}`;
 
-/* ---------- STEP 0: SELECT UNIVERSITY ---------- */
+/* ---------- UTIL: lock page scroll while a modal is open ---------- */
 
-function SelectUniversity({ university, setUniversity, options, setOptions, onContinue }) {
-  const selected = UNIVERSITIES.find((u) => u.id === university);
+function useLockBodyScroll(active) {
+  useEffect(() => {
+    if (!active) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [active]);
+}
+
+/* ---------- ALL-UNIVERSITY SCORE BREAKDOWN ---------- */
+
+function AllUniversityScores({ subjects }) {
+  const [open, setOpen] = useState(false);
+
+  const results = useMemo(() => {
+    return UNIVERSITIES.map((u) => {
+      let options = {};
+      if (u.archetype === "uct") options = { faculty: "Humanities, Law, Commerce, EBE", disadvantageFactor: 0 };
+      if (u.archetype === "cput") options = { method: 1 };
+      if (u.archetype === "nmu") options = { quintile1to3: false };
+      if (u.archetype === "wsu") options = { isFoundationPhase: false };
+      try {
+        const r = calculateScore(u.archetype, subjects, options);
+        return { ...u, ...r };
+      } catch {
+        return { ...u, score: "—", scale: "" };
+      }
+    });
+  }, [subjects]);
+
+  const hasMarks = subjects.some((s) => !s.isLO && s.subject && s.pct !== "");
 
   return (
-    <div>
-      <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0 }}>SELECT UNIVERSITY</h1>
-      <p style={{ color: "#667085", marginTop: 10 }}>
-        Every university calculates admission scores differently — pick yours so we use the right formula.
-      </p>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
-        {UNIVERSITIES.map((u) => (
-          <button
-            key={u.id}
-            onClick={() => setUniversity(u.id)}
-            style={{
-              textAlign: "left", padding: 16, borderRadius: 14, cursor: "pointer",
-              border: `1.5px solid ${university === u.id ? "#1D4ED8" : "#E4E7EC"}`,
-              background: university === u.id ? "#EFF4FF" : "#fff",
-              fontWeight: 700, fontSize: 15,
-            }}
-          >
-            {u.name}
-          </button>
-        ))}
-      </div>
-
-      {selected?.archetype === "uct" && (
-        <div style={{ marginTop: 16, padding: 16, background: "#F9FAFB", borderRadius: 14 }}>
-          <label style={{ fontWeight: 700, fontSize: 13 }}>Faculty</label>
-          <select
-            value={options.faculty || "Humanities, Law, Commerce, EBE"}
-            onChange={(e) => setOptions((o) => ({ ...o, faculty: e.target.value }))}
-            style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 10, border: "1px solid #E4E7EC" }}
-          >
-            <option>Humanities, Law, Commerce, EBE</option>
-            <option>Science</option>
-            <option>Health Sciences</option>
-          </select>
-          <label style={{ fontWeight: 700, fontSize: 13, marginTop: 12, display: "block" }}>
-            Disadvantage factor (%)
-          </label>
-          <input
-            type="number" min="0" max="20"
-            value={options.disadvantageFactor || 0}
-            onChange={(e) => setOptions((o) => ({ ...o, disadvantageFactor: e.target.value }))}
-            style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 10, border: "1px solid #E4E7EC" }}
-          />
-        </div>
-      )}
-
-      {selected?.archetype === "cput" && (
-        <div style={{ marginTop: 16, padding: 16, background: "#F9FAFB", borderRadius: 14 }}>
-          <label style={{ fontWeight: 700, fontSize: 13 }}>Programme type</label>
-          <select
-            value={options.method || 1}
-            onChange={(e) => setOptions((o) => ({ ...o, method: Number(e.target.value) }))}
-            style={{ width: "100%", marginTop: 6, padding: 10, borderRadius: 10, border: "1px solid #E4E7EC" }}
-          >
-            <option value={1}>Standard</option>
-            <option value={2}>Science / Engineering</option>
-            <option value={3}>Accountancy / Business</option>
-          </select>
-        </div>
-      )}
-
-      {selected?.archetype === "nmu" && (
-        <div style={{ marginTop: 16, padding: 16, background: "#F9FAFB", borderRadius: 14, display: "flex", alignItems: "center", gap: 10 }}>
-          <input
-            type="checkbox"
-            checked={!!options.quintile1to3}
-            onChange={(e) => setOptions((o) => ({ ...o, quintile1to3: e.target.checked }))}
-          />
-          <label style={{ fontWeight: 700, fontSize: 14 }}>I attend a Quintile 1–3 (non-fee-paying) school</label>
-        </div>
-      )}
-
-      {selected?.archetype === "wsu" && (
-        <div style={{ marginTop: 16, padding: 16, background: "#F9FAFB", borderRadius: 14, display: "flex", alignItems: "center", gap: 10 }}>
-          <input
-            type="checkbox"
-            checked={!!options.isFoundationPhase}
-            onChange={(e) => setOptions((o) => ({ ...o, isFoundationPhase: e.target.checked }))}
-          />
-          <label style={{ fontWeight: 700, fontSize: 14 }}>Applying for B.Ed Foundation Phase</label>
-        </div>
-      )}
-
+    <div style={{ marginTop: 16 }}>
       <button
-        onClick={onContinue}
-        disabled={!university}
+        onClick={() => setOpen((o) => !o)}
         style={{
-          marginTop: 24, width: "100%", padding: "16px", borderRadius: 999,
-          border: "none", fontWeight: 800, fontSize: 16, cursor: university ? "pointer" : "not-allowed",
-          background: university ? "#101828" : "#D0D5DD", color: "#fff",
+          width: "100%", padding: 12, borderRadius: 12, border: "1.5px solid #E4E7EC",
+          background: "#F9FAFB", fontWeight: 700, fontSize: 13, cursor: "pointer",
+          display: "flex", justifyContent: "center", alignItems: "center", gap: 6, color: "#344054",
         }}
       >
-        CONTINUE
+        {open ? "Hide" : "See"} your APS for every university's own formula {open ? "▲" : "▼"}
       </button>
+
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          {!hasMarks ? (
+            <p style={{ color: "#98A2B3", fontSize: 13, textAlign: "center" }}>
+              Fill in your subject marks above to see this.
+            </p>
+          ) : (
+            <>
+              <p style={{ fontSize: 12, color: "#98A2B3", marginBottom: 10 }}>
+                Universities calculate admission scores differently — this shows your score under each
+                one's own formula. A few (UCT, CPUT, NMU, WSU) need extra details like faculty or school
+                quintile for a fully precise number; those are shown using standard defaults here, so
+                always double-check anything borderline against that university's own calculator.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {results.map((r) => (
+                  <div
+                    key={r.id}
+                    style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "10px 12px", borderRadius: 10, background: "#F9FAFB", fontSize: 13,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700 }}>{r.name}</span>
+                    <span style={{ color: "#1D4ED8", fontWeight: 800 }}>
+                      {r.score} <span style={{ color: "#98A2B3", fontWeight: 600, fontSize: 11 }}>({r.scale})</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -254,8 +236,9 @@ function EnterMarks({ subjects, setSubjects, aps, scale, onContinue }) {
         </div>
       </div>
       <p style={{ color: "#667085", marginTop: 12, fontSize: 15 }}>
-        This will be used to calculate your admission score ({scale}) and recommend the best courses for you
+        This will be used to calculate your APS and recommend the best courses for you
       </p>
+      <AllUniversityScores subjects={subjects} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 24 }}>
         {subjects.map((s) => (
@@ -370,6 +353,7 @@ function ChooseCourses({ selected, setSelected, onContinue, onBack, universityId
   const [openFaculty, setOpenFaculty] = useState(null);
   const [warn, setWarn] = useState(false);
   const [facultyData, setFacultyData] = useState(null); // null = loading, {} = loaded
+  useLockBodyScroll(!!openFaculty || warn);
 
   useEffect(() => {
     let cancelled = false;
@@ -551,7 +535,7 @@ function ChooseCourses({ selected, setSelected, onContinue, onBack, universityId
 
 /* ---------- STEP 3: REVIEW ---------- */
 
-function Review({ selected, setSelected, aps, universityScore, universityId, onBack }) {
+function Review({ selected, setSelected, aps, onBack }) {
   const [showIntake, setShowIntake] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
@@ -582,18 +566,6 @@ function Review({ selected, setSelected, aps, universityScore, universityId, onB
       <p style={{ color: "#667085", marginTop: 10 }}>
         You have selected <b style={{ color: "#1D4ED8" }}>{selected.length}</b> courses.
       </p>
-
-      {universityScore?.scale && (
-        <div style={{ background: "#F9FAFB", borderRadius: 14, padding: 14, marginTop: 8, marginBottom: 4 }}>
-          <div style={{ fontSize: 13, color: "#667085" }}>Your score for this university</div>
-          <div style={{ fontWeight: 800, fontSize: 20, color: "#1D4ED8" }}>
-            {universityScore.score} <span style={{ fontSize: 13, color: "#98A2B3", fontWeight: 600 }}>({universityScore.scale})</span>
-          </div>
-          <div style={{ fontSize: 12, color: "#98A2B3", marginTop: 4 }}>
-            Course matching below uses the standard 1–42 APS scale — always confirm your exact score against the university's own official calculator.
-          </div>
-        </div>
-      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
         {selected.map((c) => (
@@ -645,7 +617,7 @@ function Review({ selected, setSelected, aps, universityScore, universityId, onB
             <div style={{ fontSize: 40, color: "#12B76A" }}>✓</div>
             <h2 style={{ margin: "12px 0" }}>Congratulations!</h2>
             <p style={{ color: "#475467" }}>
-              Skolify has found <b>{qualifyingCount}</b> universities you qualify for based on your marks and course selections.
+              Acadia has found <b>{qualifyingCount}</b> universities you qualify for based on your marks and course selections.
             </p>
             <button
               onClick={() => { setShowCongrats(false); setShowPaywall(true); }}
@@ -672,7 +644,7 @@ function Review({ selected, setSelected, aps, universityScore, universityId, onB
             <div style={{ fontSize: 40, color: "#12B76A" }}>✓</div>
             <h2 style={{ margin: "12px 0" }}>See Your Results</h2>
             <p style={{ color: "#475467" }}>
-              Skolify has found <b>{qualifyingCount}</b> universities you qualify for. Pay R19 to unlock all details.
+              Acadia has found <b>{qualifyingCount}</b> universities you qualify for. Pay R19 to unlock all details.
             </p>
             <button
               onClick={() => { setShowPaywall(false); setShowIntake(true); }}
@@ -692,8 +664,7 @@ function Review({ selected, setSelected, aps, universityScore, universityId, onB
         <Modal onClose={() => setShowIntake(false)}>
           <StudentIntakeForm
             matchedCourses={selected}
-            universityScore={universityScore}
-            universityId={universityId}
+            apsScore={aps}
           />
         </Modal>
       )}
@@ -702,6 +673,7 @@ function Review({ selected, setSelected, aps, universityScore, universityId, onB
 }
 
 function Modal({ children, onClose }) {
+  useLockBodyScroll(true);
   return (
     <div
       style={{
@@ -712,7 +684,10 @@ function Modal({ children, onClose }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: "#fff", borderRadius: 20, padding: 28, width: 340 }}
+        style={{
+          background: "#fff", borderRadius: 20, padding: 28, width: 340,
+          maxHeight: "85vh", overflowY: "auto", WebkitOverflowScrolling: "touch",
+        }}
       >
         {children}
       </div>
@@ -723,9 +698,7 @@ function Modal({ children, onClose }) {
 /* ---------- ROOT APP ---------- */
 
 function StudentApp() {
-  const [step, setStep] = useState(0);
-  const [university, setUniversity] = useState("");
-  const [uniOptions, setUniOptions] = useState({});
+  const [step, setStep] = useState(1);
   const [subjects, setSubjects] = useState(() => [
     { id: nextId(), subject: "", pct: "", isLO: false },
     { id: nextId(), subject: "", pct: "", isLO: false },
@@ -734,24 +707,10 @@ function StudentApp() {
   ]);
   const [selectedCourses, setSelectedCourses] = useState([]);
 
-  const selectedUni = UNIVERSITIES.find((u) => u.id === university);
-
-  const result = useMemo(() => {
-    if (!selectedUni) return { score: 0, scale: "" };
-    const validSubjects = subjects.filter((s) => s.subject && s.pct !== "");
-    if (validSubjects.length === 0) return { score: 0, scale: "" };
-    try {
-      return calculateScore(selectedUni.archetype, subjects, uniOptions);
-    } catch {
-      return { score: 0, scale: "" };
-    }
-  }, [subjects, selectedUni, uniOptions]);
-
-  // Standard 1-42 scale, used for matching against the course database's
-  // minAps thresholds regardless of which university's own scale is shown.
-  // If the selected university uses a different scale (e.g. UCT/NMU out of
-  // 600), this comparison is only a rough guide — always confirm against
-  // that university's own official calculator before relying on it.
+  // Standard 1-42 scale (NWU/UJ/UL/DUT/UNIZULU archetype) — used as the
+  // headline number and for matching against the course database's minAps
+  // thresholds. Each university's own formula is available via the
+  // "See your APS for every university" breakdown on the marks screen.
   const standardAps = useMemo(
     () =>
       subjects
@@ -763,23 +722,13 @@ function StudentApp() {
   return (
     <div style={{ fontFamily: "'Inter', system-ui, sans-serif", background: "#fff", minHeight: "100vh" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "24px 20px 60px" }}>
-        <ProgressBar step={step} total={4} />
+        <ProgressBar step={step} total={3} />
         <div style={{ marginTop: 28 }}>
-          {step === 0 && (
-            <SelectUniversity
-              university={university}
-              setUniversity={setUniversity}
-              options={uniOptions}
-              setOptions={setUniOptions}
-              onContinue={() => setStep(1)}
-            />
-          )}
           {step === 1 && (
             <EnterMarks
               subjects={subjects}
               setSubjects={setSubjects}
-              aps={result.score}
-              scale={result.scale}
+              aps={standardAps}
               onContinue={() => setStep(2)}
             />
           )}
@@ -789,7 +738,6 @@ function StudentApp() {
               setSelected={setSelectedCourses}
               onContinue={() => setStep(3)}
               onBack={() => setStep(1)}
-              universityId={university}
             />
           )}
           {step === 3 && (
@@ -797,8 +745,6 @@ function StudentApp() {
               selected={selectedCourses}
               setSelected={setSelectedCourses}
               aps={standardAps}
-              universityScore={result}
-              universityId={university}
               onBack={() => setStep(2)}
             />
           )}

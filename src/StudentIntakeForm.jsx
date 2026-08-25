@@ -15,7 +15,7 @@ async function uploadDoc(file, studentFolder, label) {
   return path;
 }
 
-export default function StudentIntakeForm({ matchedCourses, universityScore, universityId, onDone }) {
+export default function StudentIntakeForm({ matchedCourses, apsScore, onDone }) {
   const [form, setForm] = useState({
     fullName: "", idNumber: "", phone: "", email: "",
     nokName: "", nokRelationship: "", nokPhone: "",
@@ -51,8 +51,8 @@ export default function StudentIntakeForm({ matchedCourses, universityScore, uni
         next_of_kin_name: form.nokName,
         next_of_kin_relationship: form.nokRelationship,
         next_of_kin_phone: form.nokPhone,
-        university: universityId || null,
-        aps_score: universityScore?.score ?? null,
+        university: null,
+        aps_score: apsScore ?? null,
         matched_courses: matchedCourses || [],
         id_document_url: idUrl,
         results_document_url: resultsUrl,
