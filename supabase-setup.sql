@@ -67,7 +67,40 @@ create policy "Only admins can update applications"
   using (auth.role() = 'authenticated');
 
 
--- 3. STORAGE POLICIES for the 'student-documents' bucket
+-- ============================================================
+-- PAYMENTS TABLE (PayFast integration)
+-- ============================================================
+-- Tracks each payment attempt. Students can create a PENDING row
+-- and read status back, but only the server-side Netlify Function
+-- (using the secret service_role key, which bypasses RLS) can ever
+-- mark a payment COMPLETE. No public update policy exists here on
+-- purpose -- this stops anyone from editing the browser request to
+-- fake a successful payment.
+create table payments (
+  id uuid primary key default gen_random_uuid(),
+  m_payment_id text unique not null,
+  pf_payment_id text,
+  amount numeric not null,
+  status text default 'PENDING', -- PENDING | COMPLETE | CANCELLED
+  matched_courses jsonb,
+  aps_score numeric,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+alter table payments enable row level security;
+
+create policy "Anyone can create a pending payment"
+  on payments for insert
+  with check (status = 'PENDING');
+
+create policy "Anyone can check a payment's status"
+  on payments for select
+  using (true);
+
+
+
+-- 4. STORAGE POLICIES for the 'student-documents' bucket
 -- (Run these too -- students upload without logging in, but only
 -- you can view/download the actual documents afterward.)
 create policy "Anyone can upload a document"

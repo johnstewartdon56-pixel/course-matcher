@@ -4,6 +4,7 @@ import { supabase } from "./supabaseClient.js";
 import StudentIntakeForm from "./StudentIntakeForm.jsx";
 import AdminLogin from "./AdminLogin.jsx";
 import AdminDashboard from "./AdminDashboard.jsx";
+import { startPayfastCheckout, checkPaymentStatus } from "./payfast.js";
 
 /* ---------- DATA ---------- */
 
@@ -540,11 +541,44 @@ function Review({ selected, setSelected, aps, onBack }) {
   const [loading, setLoading] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [payState, setPayState] = useState("idle"); // idle | redirecting | confirming | failed
 
   const qualifyingCount = useMemo(
     () => selected.filter((c) => aps >= c.minAps).length,
     [selected, aps]
   );
+
+  // Handle returning from PayFast (either after paying or cancelling).
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const pfRef = url.searchParams.get("pf_ref");
+    const pfCancelled = url.searchParams.get("pf_cancelled");
+
+    if (pfCancelled) {
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
+
+    if (pfRef) {
+      setPayState("confirming");
+      checkPaymentStatus(supabase, pfRef).then((ok) => {
+        window.history.replaceState({}, "", window.location.pathname);
+        if (ok) {
+          const saved = localStorage.getItem("acadia_pending_payment");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.matchedCourses) setSelected(parsed.matchedCourses);
+          }
+          localStorage.removeItem("acadia_pending_payment");
+          setPayState("idle");
+          setShowIntake(true);
+        } else {
+          setPayState("failed");
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleContinue = () => {
     setLoading(true);
@@ -552,6 +586,19 @@ function Review({ selected, setSelected, aps, onBack }) {
       setLoading(false);
       setShowCongrats(true);
     }, 1800);
+  };
+
+  const handlePay = async () => {
+    setShowPaywall(false);
+    setPayState("redirecting");
+    await startPayfastCheckout({
+      supabase,
+      amount: 19,
+      matchedCourses: selected,
+      apsScore: aps,
+    });
+    // Browser navigates away to PayFast here; if it fails, reset state.
+    setPayState("idle");
   };
 
   return (
@@ -647,7 +694,7 @@ function Review({ selected, setSelected, aps, onBack }) {
               Acadia has found <b>{qualifyingCount}</b> universities you qualify for. Pay R19 to unlock all details.
             </p>
             <button
-              onClick={() => { setShowPaywall(false); setShowIntake(true); }}
+              onClick={handlePay}
               style={{
                 width: "100%", padding: 14, borderRadius: 999, border: "none",
                 background: "#12B76A", color: "#fff", fontWeight: 800, cursor: "pointer", marginTop: 8,
@@ -655,7 +702,47 @@ function Review({ selected, setSelected, aps, onBack }) {
             >
               💳 Pay R19 — Unlock Results
             </button>
-            <p style={{ color: "#98A2B3", fontSize: 12, marginTop: 10 }}>🔒 Secure payment</p>
+            <p style={{ color: "#98A2B3", fontSize: 12, marginTop: 10 }}>🔒 Secure payment via PayFast</p>
+          </div>
+        </Modal>
+      )}
+
+      {payState === "redirecting" && (
+        <Modal>
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <p style={{ fontWeight: 700 }}>Taking you to PayFast to complete payment...</p>
+          </div>
+        </Modal>
+      )}
+
+      {payState === "confirming" && (
+        <Modal>
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div style={{ fontSize: 32 }}>✦</div>
+            <p style={{ fontWeight: 700, marginTop: 10 }}>Confirming your payment...</p>
+            <p style={{ color: "#98A2B3", fontSize: 13 }}>This usually takes a few seconds.</p>
+          </div>
+        </Modal>
+      )}
+
+      {payState === "failed" && (
+        <Modal onClose={() => setPayState("idle")}>
+          <div style={{ textAlign: "center", padding: "10px 0" }}>
+            <div style={{ fontSize: 32, color: "#D92D20" }}>✕</div>
+            <h2 style={{ margin: "12px 0" }}>Payment not confirmed</h2>
+            <p style={{ color: "#475467", fontSize: 14 }}>
+              We couldn't confirm your payment yet. If money left your account, it may just need a
+              minute more — otherwise please try again.
+            </p>
+            <button
+              onClick={() => { setPayState("idle"); setShowPaywall(true); }}
+              style={{
+                width: "100%", padding: 14, borderRadius: 999, border: "none",
+                background: "#101828", color: "#fff", fontWeight: 800, cursor: "pointer", marginTop: 8,
+              }}
+            >
+              Try again
+            </button>
           </div>
         </Modal>
       )}
@@ -680,7 +767,7 @@ function Modal({ children, onClose }) {
         position: "fixed", inset: 0, background: "rgba(16,24,40,0.5)",
         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 40,
       }}
-      onClick={onClose}
+      onClick={() => onClose && onClose()}
     >
       <div
         onClick={(e) => e.stopPropagation()}
