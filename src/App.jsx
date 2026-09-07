@@ -673,7 +673,7 @@ function Review({ selected, setSelected, aps, onBack }) {
             <div style={{ fontSize: 40, color: "#12B76A" }}>✓</div>
             <h2 style={{ margin: "12px 0" }}>Congratulations!</h2>
             <p style={{ color: "#475467" }}>
-              Acadia has found <b>{qualifyingCount}</b> universities you qualify for based on your marks and course selections.
+              Acadia has found <b>{qualifyingCount}</b> UNISA courses you qualify for based on your marks and course selections.
             </p>
             <button
               onClick={() => { setShowCongrats(false); setShowPaywall(true); }}
@@ -700,7 +700,7 @@ function Review({ selected, setSelected, aps, onBack }) {
             <div style={{ fontSize: 40, color: "#12B76A" }}>✓</div>
             <h2 style={{ margin: "12px 0" }}>See Your Results</h2>
             <p style={{ color: "#475467" }}>
-              Acadia has found <b>{qualifyingCount}</b> universities you qualify for. Pay R19 to unlock all details.
+              Acadia has found <b>{qualifyingCount}</b> UNISA courses you qualify for. Pay R19 to unlock all details.
             </p>
             <button
               onClick={handlePay}
