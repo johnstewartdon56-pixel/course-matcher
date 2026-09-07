@@ -598,6 +598,18 @@ function Review({ selected, setSelected, aps, onBack }) {
   };
 
   const handlePay = async () => {
+    // TEMPORARY: while PayFast is still verifying your account, set
+    // VITE_BYPASS_PAYMENT=true in Netlify's environment variables to skip
+    // straight to the intake form. Remove that variable (or set it to
+    // "false") once PayFast approves you, and redeploy -- this bypass
+    // does NOT collect any money, so don't leave it on once you're live
+    // for real students.
+    if (import.meta.env.VITE_BYPASS_PAYMENT === "true") {
+      setShowPaywall(false);
+      setShowIntake(true);
+      return;
+    }
+
     setShowPaywall(false);
     setPayState("redirecting");
     await startPayfastCheckout({
