@@ -359,7 +359,13 @@ function ChooseCourses({ selected, setSelected, onContinue, onBack, universityId
   useEffect(() => {
     let cancelled = false;
     async function loadCourses() {
-      const { data, error } = await supabase.from("courses").select("*");
+      // Currently focused on UNISA only -- other universities' verified data
+      // stays in the database, just filtered out of the student-facing list
+      // until we're ready to expand.
+      const { data, error } = await supabase
+        .from("courses")
+        .select("*")
+        .eq("university", "University of South Africa");
       if (cancelled) return;
       if (error || !data || data.length === 0) {
         setFacultyData(FACULTIES); // fall back to placeholder data
@@ -402,6 +408,9 @@ function ChooseCourses({ selected, setSelected, onContinue, onBack, universityId
       <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0 }}>CHOOSE YOUR COURSES</h1>
       <p style={{ color: "#667085", marginTop: 10 }}>
         Click a faculty to view its courses. Select between 4 and 6 courses.
+      </p>
+      <p style={{ color: "#98A2B3", fontSize: 12, marginTop: 6 }}>
+        Currently showing University of South Africa (UNISA) courses only — more universities coming soon.
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 20 }}>
