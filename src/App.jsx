@@ -558,35 +558,44 @@ function Review({ selected, setSelected, aps, onBack }) {
   );
 
   // Handle returning from PayFast (either after paying or cancelling).
+  // Mobile browsers often RESTORE the page from cache instead of doing a
+  // true reload when you navigate back -- a plain mount-only effect won't
+  // re-run in that case, so we also listen for "pageshow", which fires
+  // even on a cache restore.
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const pfRef = url.searchParams.get("pf_ref");
-    const pfCancelled = url.searchParams.get("pf_cancelled");
+    function checkReturn() {
+      const url = new URL(window.location.href);
+      const pfRef = url.searchParams.get("pf_ref");
+      const pfCancelled = url.searchParams.get("pf_cancelled");
 
-    if (pfCancelled) {
-      window.history.replaceState({}, "", window.location.pathname);
-      return;
-    }
-
-    if (pfRef) {
-      setPayState("confirming");
-      checkPaymentStatus(supabase, pfRef).then((ok) => {
+      if (pfCancelled) {
         window.history.replaceState({}, "", window.location.pathname);
-        if (ok) {
-          const saved = localStorage.getItem("acadia_pending_payment");
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.matchedCourses) setSelected(parsed.matchedCourses);
+        return;
+      }
+
+      if (pfRef) {
+        setPayState("confirming");
+        checkPaymentStatus(supabase, pfRef).then((ok) => {
+          window.history.replaceState({}, "", window.location.pathname);
+          if (ok) {
+            const saved = localStorage.getItem("acadia_pending_payment");
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (parsed.matchedCourses) setSelected(parsed.matchedCourses);
+            }
+            localStorage.removeItem("acadia_pending_payment");
+            setPayState("idle");
+            setShowIntake(true);
+          } else {
+            setPayState("failed");
           }
-          localStorage.removeItem("acadia_pending_payment");
-          setPayState("idle");
-          setShowIntake(true);
-        } else {
-          setPayState("failed");
-        }
-      });
+        });
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    checkReturn(); // run once on normal mount
+    window.addEventListener("pageshow", checkReturn); // also run on cache restore
+    return () => window.removeEventListener("pageshow", checkReturn);
   }, []);
 
   const handleContinue = () => {
@@ -806,7 +815,17 @@ function Modal({ children, onClose }) {
 /* ---------- ROOT APP ---------- */
 
 function StudentApp() {
-  const [step, setStep] = useState(1);
+  // If PayFast redirected back here with a payment reference and this is a
+  // genuinely fresh page load (not a cache restore), jump straight to the
+  // Review step so the payment-confirmation check actually runs -- otherwise
+  // the student would land back on step 1 with no explanation.
+  const [step, setStep] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("pf_ref") || params.get("pf_cancelled")) return 3;
+    }
+    return 1;
+  });
   const [subjects, setSubjects] = useState(() => [
     { id: nextId(), subject: "", pct: "", isLO: false },
     { id: nextId(), subject: "", pct: "", isLO: false },
