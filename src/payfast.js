@@ -2,10 +2,10 @@
 // ready to accept real payments. Also update the merchant credentials
 // below with your LIVE ones at that point (sandbox and live use
 // different Merchant ID / Merchant Key).
-export const PAYFAST_MODE = "sandbox"; // "sandbox" | "live"
+export const PAYFAST_MODE = "live"; // "sandbox" | "live"
 
-const PAYFAST_MERCHANT_ID = "10000100"; // PayFast's public sandbox test ID -- replace with yours
-const PAYFAST_MERCHANT_KEY = "46f0cd694581a"; // PayFast's public sandbox test key -- replace with yours
+const PAYFAST_MERCHANT_ID = "36812833"; // PayFast's public sandbox test ID -- replace with yours
+const PAYFAST_MERCHANT_KEY = "iw0lybs9gmqpq"; // PayFast's public sandbox test key -- replace with yours
 
 const PROCESS_URL =
   PAYFAST_MODE === "live"
